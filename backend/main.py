@@ -1,23 +1,36 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.config.settings import settings
-from backend.api.routes import health, chat
+
+from api.routes import chat, health
+from config.settings import settings
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    logger.info("Modular AI backend running")
+    yield
+
 
 app = FastAPI(
-    title="Jaishankar AI Backend",
-    description="Phase 1 skeleton backend supporting SSE streaming and modular architecture.",
-    version="1.0.0"
+    title="Modular AI Backend",
+    description="Phase 1 NLP pipeline — streaming chat with modular extension hooks.",
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
-# Configure CORS Origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register routers
 app.include_router(health.router)
 app.include_router(chat.router)

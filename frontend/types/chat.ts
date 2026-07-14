@@ -1,11 +1,13 @@
-export type Role = 'user' | 'assistant';
+export type Role = "user" | "assistant";
 
 export interface Message {
   id: string;
   role: Role;
   content: string;
+  isStreaming?: boolean;
 }
 
-export interface ChatSession {
-  sessionId: string;
+export interface Session {
+  id: string;
+  messages: Message[];
 }

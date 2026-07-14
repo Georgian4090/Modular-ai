@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "modular-ai-frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -12,8 +12,7 @@
     "next": "14.2.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-markdown": "^9.0.1",
-    "lucide-react": "^0.378.0"
+    "react-markdown": "^9.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",

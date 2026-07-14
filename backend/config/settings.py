@@ -1,30 +1,27 @@
-import json
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
-    OPENAI_API_KEY: str = Field("default_key_to_be_replaced", env="OPENAI_API_KEY")
-    MODEL_NAME: str = Field("gpt-4o-mini", env="MODEL_NAME")
-    CORS_ORIGINS: list[str] = Field(["http://localhost:3000"], env="CORS_ORIGINS")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, value: str | list[str]) -> list[str]:
-        if isinstance(value, str):
-            if not value.strip():
-                return ["*"]
-            try:
-                parsed = json.loads(value)
-                if isinstance(parsed, list):
-                    return parsed
-            except json.JSONDecodeError:
-                pass
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+    OPENAI_API_KEY: str
+    MODEL_NAME: str = "gpt-4o-mini"
+    CORS_ORIGINS: str = "http://localhost:3000"
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    @property
+    def cors_origins_list(self) -> list[str]:
+        if not self.CORS_ORIGINS.strip():
+            return ["http://localhost:3000"]
+        return [
+            origin.strip()
+            for origin in self.CORS_ORIGINS.split(",")
+            if origin.strip()
+        ]
+
 
 settings = Settings()
