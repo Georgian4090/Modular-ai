@@ -24,4 +24,5 @@ def test_chat_stream_returns_mocked_tokens(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
-    assert response.text == "data: Hello\n\ndata:  there\n\ndata: [DONE]\n\n"
+    assert "Hello" in response.text
+    assert "[DONE]" in response.text

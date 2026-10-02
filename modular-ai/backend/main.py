@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import chat, health
+from api.routes import chat, health, memory, rag
 from config.settings import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -29,3 +29,5 @@ app.add_middleware(
 
 app.include_router(chat.router)
 app.include_router(health.router)
+app.include_router(memory.router)
+app.include_router(rag.router)

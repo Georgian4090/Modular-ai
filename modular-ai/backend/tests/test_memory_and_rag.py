@@ -8,8 +8,10 @@ def test_memory_route_returns_session_context() -> None:
     response = client.get("/memory", params={"session_id": "abc-123"})
 
     assert response.status_code == 200
-    assert "session_id" in response.json()
-    assert response.json()["session_id"] == "abc-123"
+    payload = response.json()
+    assert payload["session_id"] == "abc-123"
+    assert "short_term" in payload
+    assert payload["long_term"] == []
 
 
 def test_rag_ingest_returns_status_and_document() -> None:
@@ -20,5 +22,6 @@ def test_rag_ingest_returns_status_and_document() -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["status"] == "ok"
-    assert response.json()["document"]["text"].startswith("India")
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["document"]["text"].startswith("India")

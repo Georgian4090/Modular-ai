@@ -20,7 +20,7 @@ class ChatRequest(BaseModel):
 @router.post("/chat/stream")
 async def stream_chat(request: ChatRequest) -> StreamingResponse:
     async def event_stream() -> AsyncGenerator[str, None]:
-        async for token in orchestrator.run(request.message):
+        async for token in orchestrator.run(request.message, session_id=request.session_id):
             yield f"data: {token}\n\n"
         yield "data: [DONE]\n\n"
 
