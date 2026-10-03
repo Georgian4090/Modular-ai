@@ -56,7 +56,7 @@ export default function SettingsPage() {
 
           <div
             className="divide-y rounded-2xl overflow-hidden"
-            style={{ border: "1px solid rgba(255,255,255,0.07)", background: "#0d0d1a", divideColor: "rgba(255,255,255,0.05)" }}
+            style={{ border: "1px solid rgba(255,255,255,0.07)", background: "#0d0d1a" }}
           >
             {rows.map(({ label, value }) => (
               <div
