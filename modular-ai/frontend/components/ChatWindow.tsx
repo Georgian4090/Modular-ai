@@ -18,12 +18,14 @@ export function ChatWindow({ messages, isStreaming }: ChatWindowProps) {
     scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
 
+  const showTypingIndicator = isStreaming && messages.at(-1)?.content === "";
+
   return (
-    <div className="flex-1 space-y-1 overflow-y-auto px-3 py-4 sm:px-4">
+    <div className="flex-1 overflow-y-auto px-4 py-6">
       {messages.map((message) => (
         <MessageBubble key={message.id} message={message} />
       ))}
-      {isStreaming ? <TypingIndicator /> : null}
+      {showTypingIndicator ? <TypingIndicator /> : null}
       <div ref={scrollAnchorRef} />
     </div>
   );

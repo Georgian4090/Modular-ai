@@ -1,13 +1,35 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatWindow } from "@/components/ChatWindow";
 import { MemoryStatusPanel } from "@/components/MemoryStatusPanel";
-import { SidebarHistory } from "@/components/SidebarHistory";
+import { Sidebar } from "@/components/Sidebar";
 import { StreamingRenderer } from "@/components/StreamingRenderer";
-import { VoiceControls } from "@/components/VoiceControls";
 import { Message } from "@/types/chat";
+
+// ── icons (inline SVG to keep zero extra deps) ───────────────────────────────
+function SendIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
@@ -15,7 +37,7 @@ export default function ChatPage() {
       id: "welcome",
       role: "assistant",
       content:
-        "This is an AI assistant inspired by a specific public communication style. I will respond with measured analysis and diplomatic framing.",
+        "Hello. I am an AI assistant designed for measured, strategic dialogue. I will respond with calm analysis and diplomatic framing. How may I assist you?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -27,119 +49,171 @@ export default function ChatPage() {
     assistantId: string;
   } | null>(null);
 
-  useEffect(() => {
-    const storedSession = window.sessionStorage.getItem("modular-ai-session");
-    if (storedSession) {
-      setSessionId(storedSession);
-      return;
-    }
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    const generatedId = crypto.randomUUID();
-    window.sessionStorage.setItem("modular-ai-session", generatedId);
-    setSessionId(generatedId);
+  // Session init
+  useEffect(() => {
+    const stored = window.sessionStorage.getItem("modular-ai-session");
+    if (stored) { setSessionId(stored); return; }
+    const id = crypto.randomUUID();
+    window.sessionStorage.setItem("modular-ai-session", id);
+    setSessionId(id);
   }, []);
 
-  const handleToken = (assistantId: string, token: string) => {
-    setMessages((current) =>
-      current.map((message) =>
-        message.id === assistantId
-          ? { ...message, content: message.content + token, isStreaming: true }
-          : message,
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
+  }, [input]);
+
+  const handleToken = useCallback((assistantId: string, token: string) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === assistantId ? { ...m, content: m.content + token, isStreaming: true } : m,
       ),
     );
-  };
+  }, []);
 
-  const handleStreamDone = (assistantId: string) => {
-    setMessages((current) =>
-      current.map((message) =>
-        message.id === assistantId ? { ...message, isStreaming: false } : message,
-      ),
+  const handleStreamDone = useCallback((assistantId: string) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === assistantId ? { ...m, isStreaming: false } : m)),
     );
     setIsStreaming(false);
     setActiveStream(null);
-  };
+    setTimeout(() => textareaRef.current?.focus(), 50);
+  }, []);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmit = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    const trimmed = input.trim();
+    if (!trimmed || !sessionId || isStreaming) return;
 
-    const trimmedInput = input.trim();
-    if (!trimmedInput || !sessionId || isStreaming) {
-      return;
-    }
-
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: trimmedInput,
-    };
-
+    const userMessage: Message = { id: crypto.randomUUID(), role: "user", content: trimmed };
     const assistantId = crypto.randomUUID();
-    const assistantMessage: Message = {
-      id: assistantId,
-      role: "assistant",
-      content: "",
-      isStreaming: true,
-    };
+    const assistantMessage: Message = { id: assistantId, role: "assistant", content: "", isStreaming: true };
 
-    setMessages((current) => [...current, userMessage, assistantMessage]);
+    setMessages((prev) => [...prev, userMessage, assistantMessage]);
     setInput("");
     setIsStreaming(true);
-    setActiveStream({ message: trimmedInput, sessionId, assistantId });
+    setActiveStream({ message: trimmed, sessionId, assistantId });
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const canSend = !!input.trim() && !!sessionId && !isStreaming;
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-7xl flex-col px-3 py-4 sm:px-6">
-      <div className="flex min-h-[calc(100vh-4rem)] overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/80">
-        <SidebarHistory />
+    <div className="flex h-screen overflow-hidden" style={{ background: "#08080f" }}>
+      {/* Left Sidebar */}
+      <Sidebar sessionId={sessionId} />
 
-        <section className="flex flex-1 flex-col">
-          <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-            <div>
-              <div className="text-lg font-semibold text-slate-100">Strategic advisory</div>
-              <div className="text-xs text-slate-400">Measured, calm, and structured</div>
+      {/* Main */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Header */}
+        <header
+          className="flex shrink-0 items-center justify-between px-5 py-3"
+          style={{
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(8,8,15,0.8)",
+            backdropFilter: "blur(12px)",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="h-2 w-2 rounded-full"
+              style={{ background: "#22c55e", boxShadow: "0 0 6px #22c55e" }}
+            />
+            <span className="text-sm font-semibold text-slate-100">Strategic Advisory</span>
+            <span className="text-xs text-slate-500">— measured, calm, structured</span>
+          </div>
+          {sessionId && (
+            <div
+              className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-mono uppercase tracking-widest text-slate-500"
+              style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+            >
+              Session: {sessionId.slice(0, 8)}
             </div>
-            <div className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Session: {sessionId.slice(0, 8)}</div>
-          </header>
+          )}
+        </header>
 
-          <div className="flex flex-1 gap-4 p-4">
-            <div className="flex-1">
-              <ChatWindow messages={messages} isStreaming={isStreaming} />
+        {/* Body: messages + right panel */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Chat area */}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <ChatWindow messages={messages} isStreaming={isStreaming} />
 
-              <form onSubmit={handleSubmit} className="border-t border-slate-800 px-3 py-4">
-                <div className="flex flex-col gap-3">
-                  <textarea
-                    value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    placeholder="Ask a strategic question..."
-                    className="min-h-[96px] w-full resize-none rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-slate-500 focus:outline-none"
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        void handleSubmit(event as unknown as FormEvent<HTMLFormElement>);
-                      }
-                    }}
-                  />
-                  <div className="flex items-center justify-between gap-3">
-                    <VoiceControls />
-                    <button
-                      type="submit"
-                      disabled={!input.trim() || isStreaming || !sessionId}
-                      className="rounded-xl border border-slate-700 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Send
-                    </button>
-                  </div>
-                </div>
+            {/* Input form */}
+            <div
+              className="shrink-0 px-4 py-3"
+              style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              <form
+                onSubmit={handleSubmit}
+                className="relative flex items-end gap-2 rounded-2xl p-2"
+                style={{
+                  border: "1px solid rgba(99,102,241,0.2)",
+                  background: "#0d0d18",
+                  boxShadow: isStreaming ? "0 0 0 1px rgba(99,102,241,0.12)" : "none",
+                  transition: "box-shadow 0.2s",
+                }}
+              >
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask a strategic question… (Shift+Enter for newline)"
+                  disabled={isStreaming}
+                  rows={1}
+                  className="flex-1 resize-none bg-transparent px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none disabled:opacity-50"
+                  style={{ lineHeight: "1.6", maxHeight: "180px", overflowY: "auto" }}
+                />
+                {/* Voice button */}
+                <button
+                  type="button"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:text-slate-300"
+                  title="Voice input"
+                >
+                  <MicIcon />
+                </button>
+                {/* Send button */}
+                <button
+                  type="submit"
+                  disabled={!canSend}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white transition disabled:opacity-30"
+                  style={{
+                    background: canSend ? "#6366f1" : "rgba(99,102,241,0.3)",
+                    boxShadow: canSend ? "0 0 12px rgba(99,102,241,0.4)" : "none",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  <SendIcon />
+                </button>
               </form>
-            </div>
-
-            <div className="hidden w-72 shrink-0 lg:block">
-              <MemoryStatusPanel />
+              <p className="mt-1.5 text-center text-[10px] text-slate-700">
+                AI responses may be inaccurate. This system is not affiliated with any real individual.
+              </p>
             </div>
           </div>
-        </section>
+
+          {/* Right panel */}
+          <aside
+            className="hidden w-72 shrink-0 overflow-y-auto p-4 xl:block"
+            style={{ borderLeft: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <MemoryStatusPanel messageCount={messages.length} isStreaming={isStreaming} />
+          </aside>
+        </div>
       </div>
 
+      {/* Hidden streaming engine */}
       {activeStream ? (
         <StreamingRenderer
           message={activeStream.message}
@@ -149,6 +223,6 @@ export default function ChatPage() {
           onDone={handleStreamDone}
         />
       ) : null}
-    </main>
+    </div>
   );
 }
